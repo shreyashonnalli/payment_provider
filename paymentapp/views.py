@@ -115,3 +115,31 @@ def initiate_transaction(request, checkout_id):
 
     checkout_serializer = CheckoutSerializer(checkout)
     return Response(checkout_serializer.data)
+
+
+# returns a checkout object of a given checkout id
+@api_view(['GET'])
+def get_checkout(request, checkout_id):
+    if not 'API-KEY' in request.headers:
+        return Response({'error': 'no API-KEY provided in header'})
+    API_KEY = request.headers['API-KEY']
+    merchant_db = Merchant.objects.filter(API_KEY=API_KEY).first()
+    if merchant_db is None:
+        return Response({'error': 'Not an authorised merchant for this Payment Service!'})
+
+    checkout = Checkout.objects.filter(id=checkout_id).first()
+    if checkout is None:
+        return Response({'error': 'No checkout found for this ID.'})
+
+    checkout_serializer = CheckoutSerializer(checkout)
+    return Response(checkout_serializer.data)
+
+
+@api_view(['GET'])
+def get_status(request, checkout_id):
+    checkout = Checkout.objects.filter(id=checkout_id).first()
+    if checkout is None:
+        return Response({'error': 'No checkout found for this ID.'})
+
+    status = checkout.status
+    return Response({'status': status})
