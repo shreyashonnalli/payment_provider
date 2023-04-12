@@ -1,13 +1,13 @@
-from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from paymentapp.models import Merchant, Currency, Transaction, Checkout
-from django.core import serializers
-from django.http import JsonResponse
 from .serializers import MerchantSerializer, CurrencySerializer, TransactionSerializer, CheckoutSerializer
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from . import validators
+from django.db.models import Q
+import random
+
 
 # Create your views here.
 
@@ -16,35 +16,26 @@ from . import validators
 
 @api_view(['POST'])
 def create_checkout(request):
-    if not 'API-KEY' in request.headers:
-        return Response({'error': 'no API-KEY provided in header'})
-    API_KEY = request.headers['API-KEY']
-    merchant_db = Merchant.objects.filter(API_KEY=API_KEY).first()
-    if merchant_db is None:
-        return Response({'error': 'Not an authorised merchant for this Payment Service!'})
+    # check if API_KEY is valid
+    if not validators.API_KEY_validator(request.headers):
+        return Response({'error': 'No API_KEY provided or key is invalid.'})
 
+    # check if body has appropriate info
     try:
         body = json.loads(request.body)
     except json.JSONDecodeError as e:
         return Response({'error': 'error while parsing request body. Make sure you\'re sending json in body'})
-    if not 'amount' in body or not 'currency' in body or not 'description' in body:
-        return Response({'error': 'not appropriate keys in body. Need keys amount, description and currency'})
-    if not isinstance(body['amount'], int) or not isinstance(body['currency'], str) or not isinstance(body['description'], str):
-        return Response({'error': 'amount needs to be an integer, currency needs to be a a string, description needs to be a string'})
-    if len(body['currency']) > 3 or len(body['description']) == 0:
-        return Response({'error': 'currency needs to be of max length 3 letters (ALL CAPS), description must include something'})
-    if (body['amount'] < 1):
-        return Response({'error': 'invalid amount entered'})
+    if not validators.create_checkout_validator(body):
+        return Response({'error': 'Invalid details in body. Make sure you have amount, description and currency. Make sure currency is a string with max three letters and all caps. Make sure description is not empty(string). Make sure amount is an integer > 0.'})
 
-    currency_code = body['currency']
-    currency_db = Currency.objects.filter(code=currency_code).first()
-    if currency_db is None:
-        return Response({'error': 'currency code doesnt exist. For list of available currencies we accept, Visit https://developers.google.com/adsense/management/appendix/currencies'})
-    amount = body['amount']
+    # get appropriate info from body and create new transaction and checkout object associated to it. Add to db.
+    currency_db = Currency.objects.filter(code=body['currency']).first()
+    merchant_db = Merchant.objects.filter(
+        API_KEY=request.headers['API_KEY']).first()
 
-    new_checkout = Checkout(merchant=merchant_db,
-                            amount=amount, currency=currency_db, description=body['description'], status='PENDING', installments=1)
-    new_transaction = Transaction(status='PENDING', amount=amount)
+    new_checkout = Checkout(merchant=merchant_db, amount=body['amount'], currency=currency_db,
+                            description=body['description'], status='PENDING', installments=1)
+    new_transaction = Transaction(amount=body['amount'])
 
     new_transaction.save()
     new_checkout.save()
@@ -55,6 +46,7 @@ def create_checkout(request):
     new_transaction.save()
     new_checkout.save()
 
+    # Return the checkout object
     checkout_serializer = CheckoutSerializer(new_checkout)
     return Response(checkout_serializer.data)
 
@@ -62,16 +54,18 @@ def create_checkout(request):
 # Given an checkout_id, and updated checkout object, we start the process of transaction if card details are valid
 @api_view(['POST'])
 def initiate_transaction(request, checkout_id):
-    if not 'API-KEY' in request.headers:
-        return Response({'error': 'no API-KEY provided in header'})
-    API_KEY = request.headers['API-KEY']
-    merchant_db = Merchant.objects.filter(API_KEY=API_KEY).first()
-    if merchant_db is None:
-        return Response({'error': 'Not an authorised merchant for this Payment Service!'})
+    if not validators.API_KEY_validator(request.headers):
+        return Response({'error': 'No API_KEY provided or key is invalid.'})
 
+    merchant_db = Merchant.objects.filter(
+        API_KEY=request.headers['API-KEY']).first()
     checkout = Checkout.objects.filter(id=checkout_id).first()
-    if checkout is None:
-        return Response({'error': 'No checkout found for this ID.'})
+
+    # Make sure this checkout is accessible by the merchant requesting
+    if not validators.checkout_valid(checkout, merchant_db):
+        return Response({'error': 'Checkout doesn\'t exist or not valid for this merchant.'})
+    if checkout.status != "PENDING":
+        return Response({'error': 'Transaction already completed for this checkout!'})
 
     try:
         body = json.loads(request.body)
@@ -80,25 +74,16 @@ def initiate_transaction(request, checkout_id):
 
     if not 'name' in body or not 'number' in body or not 'exp_month' in body or not 'exp_year' in body or not 'cvv' in body:
         return Response({'error': 'Need fields name, number, exp_month, exp_year and cvv'})
+
     name = body['name']
     number = body['number']
     exp_month = body['exp_month']
     exp_year = body['exp_year']
     cvv = body['cvv']
-    if not isinstance(name, str) or not isinstance(number, int) or not isinstance(exp_month, int) or not isinstance(exp_year, int) or not isinstance(cvv, int):
-        return Response({'error': 'Inappropriate datatypes. Make sure only name is string and rest are integers'})
-    if number < 1000000000000000 or number > 9999999999999999:
-        return Response({'error': 'Number not 16 digits'})
-    if exp_month < 1 or exp_month > 12:
-        return Response({'error': 'Invalid exp_month'})
-    if exp_year < 2023 or exp_year > 9999:
-        return Response({'error': 'Invalid exp_year or card expired'})
-    if cvv < 100 or cvv > 999:
-        return Response({'error': 'Invalid CVV'})
-    if name == "":
-        return Response({'error': 'Empty Name'})
-    if validators.is_month_year_in_past(exp_month, exp_year):
-        return Response({'error': 'Card Expired!'})
+    if not validators.card_validator(name, number, exp_month, exp_year, cvv):
+        checkout.status = "FAILED"
+        checkout.save()
+        return Response({'error': 'Invalid card details. Make sure name is not empty, number is 16 digits, exp month and year are valid and not expired, and cvv is 3 digits. Checkout is failed. Merchant must new checkout for security purposes. Make sure name is string and rest are integers when calling this endpoint again.'})
 
     checkout.name = name
     checkout.number = number
@@ -107,8 +92,7 @@ def initiate_transaction(request, checkout_id):
     checkout.cvv = cvv
     checkout.status = "INPROGRESS"
     transaction_in_checkout = checkout.transactions.all()[0]
-    transaction_in_checkout.date = datetime.now() + timedelta(days=7)
-    transaction_in_checkout.status = "INPROGRESS"
+    transaction_in_checkout.date = datetime.now() - timedelta(days=7)
 
     checkout.save()
     transaction_in_checkout.save()
@@ -120,17 +104,18 @@ def initiate_transaction(request, checkout_id):
 # returns a checkout object of a given checkout id
 @api_view(['GET'])
 def get_checkout(request, checkout_id):
-    if not 'API-KEY' in request.headers:
-        return Response({'error': 'no API-KEY provided in header'})
-    API_KEY = request.headers['API-KEY']
-    merchant_db = Merchant.objects.filter(API_KEY=API_KEY).first()
-    if merchant_db is None:
-        return Response({'error': 'Not an authorised merchant for this Payment Service!'})
+    if not validators.API_KEY_validator(request.headers):
+        return Response({'error': 'No API_KEY provided or key is invalid.'})
 
+    merchant_db = Merchant.objects.filter(
+        API_KEY=request.headers['API-KEY']).first()
     checkout = Checkout.objects.filter(id=checkout_id).first()
-    if checkout is None:
-        return Response({'error': 'No checkout found for this ID.'})
 
+    # Make sure this checkout is accessible by the merchant requesting
+    if not validators.checkout_valid(checkout, merchant_db):
+        return Response({'error': 'Checkout doesn\'t exist or not valid for this merchant.'})
+
+    # return checkout object
     checkout_serializer = CheckoutSerializer(checkout)
     return Response(checkout_serializer.data)
 
@@ -145,25 +130,86 @@ def get_status(request, checkout_id):
     status = checkout.status
     return Response({'status': status})
 
+# Cancels a checkout object if its still pending, otherwise cannot cancel
+
 
 @api_view(['DELETE'])
 def cancel_checkout(request, checkout_id):
-    if not 'API-KEY' in request.headers:
-        return Response({'error': 'no API-KEY provided in header'})
-    API_KEY = request.headers['API-KEY']
-    merchant_db = Merchant.objects.filter(API_KEY=API_KEY).first()
-    if merchant_db is None:
-        return Response({'error': 'Not an authorised merchant for this Payment Service!'})
+    if not validators.API_KEY_validator(request.headers):
+        return Response({'error': 'No API_KEY provided or key is invalid.'})
 
+    merchant_db = Merchant.objects.filter(
+        API_KEY=request.headers['API-KEY']).first()
     checkout = Checkout.objects.filter(id=checkout_id).first()
-    if checkout is None:
-        return Response({'error': 'No checkout found for this ID.'})
+
+    # Make sure this checkout is accessible by the merchant requesting
+    if not validators.checkout_valid(checkout, merchant_db):
+        return Response({'error': 'Checkout doesn\'t exist or not valid for this merchant.'})
 
     if checkout.status != "PENDING":
-        return Response({'error': 'Checkout has already been transacted. Cannot cancel'})
+        return Response({'error': 'Transaction has already been initiated/complete for this checkout. Cannot cancel'})
 
     transaction_in_checkout = checkout.transactions.all()[0]
     transaction_in_checkout.delete()
     checkout.delete()
 
     return Response({'message': 'Checkout object successfully deleted!'})
+
+
+@api_view(['POST'])
+def refund_checkout(request, checkout_id):
+    if not validators.API_KEY_validator(request.headers):
+        return Response({'error': 'No API_KEY provided or key is invalid.'})
+
+    merchant_db = Merchant.objects.filter(
+        API_KEY=request.headers['API-KEY']).first()
+    checkout = Checkout.objects.filter(id=checkout_id).first()
+
+    # Make sure this checkout is accessible by the merchant requesting
+    if not validators.checkout_valid(checkout, merchant_db):
+        return Response({'error': 'Checkout doesn\'t exist or not valid for this merchant.'})
+
+    if checkout.status != "SUCCESSFUL":
+        if checkout.status == "INPROGRESS":
+            return Response({'error': 'Payments are yet to be taken from your account. You can only refund after that date'})
+        else:
+            return Response({'error': 'Not possible to refund this checkout as it is still PENDING, FAILED, DECLINED OR DEBT'})
+
+    transaction_in_checkout = checkout.transactions.all()[0]
+    checkout.delete()
+    transaction_in_checkout.delete()
+
+    return Response({'message': 'Amount has been refunded and checkout has been deleted from db'})
+
+# This endpoint is called to begin transferring of funds of all checkouts in the Buy Now Pay Later Scheme. It is triggered by an external script calling this endpoint once every day.
+
+
+def bernoulli():
+    if random.random() < 0.05:
+        return 1
+    else:
+        return 0
+
+
+@api_view(['PUT'])
+def process_transaction(request):
+    if not 'API-KEY' in request.headers or request.headers['API-KEY'] != 'a very secret secret':
+        return Response({'error': 'This is an endpoint for internal calls only. You will be reported to the authorities for unauthorized access attempts'})
+
+    checkouts = Checkout.objects.filter(
+        Q(status="INPROGRESS") & Q(date__lte=date.today()))
+    if len(checkouts) == 0:
+        return Response({'message': 'No checkouts to trigger money transfers on this day.'})
+
+    for checkout in checkouts:
+        transaction_in_checkout = checkout.transactions.all()[0]
+        if bernoulli():
+            checkout.status = "DECLINED"
+            transaction_in_checkout.status = "DECLINED"
+        else:
+            checkout.status = "SUCCESSFUL"
+            transaction_in_checkout.status = "SUCCESSFUL"
+        checkout.save()
+        transaction_in_checkout.save()
+
+    return Response({'message': 'All checkouts have been successfully processed!'})

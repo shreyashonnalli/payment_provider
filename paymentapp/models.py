@@ -15,8 +15,8 @@ class Merchant(models.Model):
 
 
 class Transaction(models.Model):
-    date = models.DateField()
-    status = models.CharField(max_length=15)
+    date = models.DateField(null=True)
+    status = models.CharField(max_length=15, null=True)
     amount = models.IntegerField()
     checkouts = models.ManyToManyField('Checkout')
 
