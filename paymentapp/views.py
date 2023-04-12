@@ -135,6 +135,7 @@ def get_checkout(request, checkout_id):
     return Response(checkout_serializer.data)
 
 
+# returns status of a checkout object, no need for api key
 @api_view(['GET'])
 def get_status(request, checkout_id):
     checkout = Checkout.objects.filter(id=checkout_id).first()
@@ -143,3 +144,26 @@ def get_status(request, checkout_id):
 
     status = checkout.status
     return Response({'status': status})
+
+
+@api_view(['DELETE'])
+def cancel_checkout(request, checkout_id):
+    if not 'API-KEY' in request.headers:
+        return Response({'error': 'no API-KEY provided in header'})
+    API_KEY = request.headers['API-KEY']
+    merchant_db = Merchant.objects.filter(API_KEY=API_KEY).first()
+    if merchant_db is None:
+        return Response({'error': 'Not an authorised merchant for this Payment Service!'})
+
+    checkout = Checkout.objects.filter(id=checkout_id).first()
+    if checkout is None:
+        return Response({'error': 'No checkout found for this ID.'})
+
+    if checkout.status != "PENDING":
+        return Response({'error': 'Checkout has already been transacted. Cannot cancel'})
+
+    transaction_in_checkout = checkout.transactions.all()[0]
+    transaction_in_checkout.delete()
+    checkout.delete()
+
+    return Response({'message': 'Checkout object successfully deleted!'})
