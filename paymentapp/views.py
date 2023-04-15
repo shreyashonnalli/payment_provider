@@ -1,6 +1,6 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from rest_framework.status import HTTP_200_OK, HTTP_401_UNAUTHORIZED, HTTP_400_BAD_REQUEST, HTTP_415_UNSUPPORTED_MEDIA_TYPE
+from rest_framework.status import HTTP_200_OK, HTTP_401_UNAUTHORIZED, HTTP_400_BAD_REQUEST, HTTP_415_UNSUPPORTED_MEDIA_TYPE, HTTP_201_CREATED
 from paymentapp.models import Merchant, Currency, Transaction, Checkout
 from .serializers import MerchantSerializer, CurrencySerializer, TransactionSerializer, CheckoutSerializer
 import json
@@ -49,7 +49,7 @@ def create_checkout(request):
 
     # Return the checkout object
     checkout_serializer = CheckoutSerializer(new_checkout)
-    return Response(checkout_serializer.data, status=HTTP_200_OK)
+    return Response(checkout_serializer.data, status=HTTP_201_CREATED)
 
 
 # Given an checkout_id, and updated checkout object, we start the process of transaction if card details are valid
