@@ -1,7 +1,4 @@
 import requests
-import schedule
-import time
-
 url = 'http://sc20sh.pythonanywhere.com/api/checkout/process'
 headers = {'API-KEY': 'a very secret secret'}
 
