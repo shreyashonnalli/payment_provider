@@ -2,7 +2,7 @@ import requests
 import schedule
 import time
 
-url = 'http://127.0.0.1:8000/api/checkout/process'
+url = 'http://sc20sh.pythonanywhere.com/api/checkout/process'
 headers = {'API-KEY': 'a very secret secret'}
 
 
