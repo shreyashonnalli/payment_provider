@@ -8,14 +8,8 @@ headers = {'API-KEY': 'a very secret secret'}
 
 def process_checkout():
     response = requests.put(url, headers=headers)
-    # print(f"HTTP POST response: {response.status_code}")
-    # print(response.json())
+    print(f"HTTP POST response: {response.status_code}")
+    print(response.json())
 
 
-schedule.every(1).days.do(process_checkout)
-
-# schedule.every(1).seconds.do(process_checkout)
-
-while True:
-    schedule.run_pending()
-    time.sleep(5)
+process_checkout()
