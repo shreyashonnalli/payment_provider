@@ -15,7 +15,7 @@ from .serializers import (
     CheckoutSerializer,
 )
 import json
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 from . import validators
 from django.db.models import Q
 import random
@@ -149,7 +149,7 @@ def initiate_transaction(request, checkout_id):
     checkout.cvv = cvv
     checkout.status = "INPROGRESS"
     transaction_in_checkout = checkout.transactions.all()[0]
-    transaction_in_checkout.date = datetime.now() - timedelta(days=7)
+    transaction_in_checkout.date = datetime.now() + timedelta(days=7)
 
     checkout.save()
     transaction_in_checkout.save()
