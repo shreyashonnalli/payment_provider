@@ -327,6 +327,8 @@ def process_transaction(request):
 
     for checkout in checkouts:
         transaction_in_checkout = checkout.transactions.all()[0]
+        print(transaction_in_checkout.date)
+        print(checkout.date)
         if bernoulli():
             checkout.status = "DEBT"
             transaction_in_checkout.status = "DECLINED"
