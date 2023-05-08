@@ -55,10 +55,12 @@ def create_checkout(request):
 
     # get appropriate info from body and create new transaction and checkout object associated to it. Add to db.
     currency_db = Currency.objects.filter(code=body["currency"]).first()
-    merchant_db = Merchant.objects.filter(API_KEY=request.headers["API_KEY"]).first()
+    merchant_db = Merchant.objects.filter(
+        API_KEY=validators.get_token(request.headers)
+    ).first()
 
     new_checkout = Checkout(
-        merchant=merchant_db,
+        _merchant=merchant_db,
         amount=body["amount"],
         currency=currency_db,
         description=body["description"],
@@ -90,7 +92,9 @@ def initiate_transaction(request, checkout_id):
             status=HTTP_401_UNAUTHORIZED,
         )
 
-    merchant_db = Merchant.objects.filter(API_KEY=request.headers["API-KEY"]).first()
+    merchant_db = Merchant.objects.filter(
+        API_KEY=validators.get_token(request.headers)
+    ).first()
     checkout = Checkout.objects.filter(id=checkout_id).first()
 
     # Make sure this checkout is accessible by the merchant requesting
@@ -167,7 +171,9 @@ def get_checkout(request, checkout_id):
             status=HTTP_401_UNAUTHORIZED,
         )
 
-    merchant_db = Merchant.objects.filter(API_KEY=request.headers["API-KEY"]).first()
+    merchant_db = Merchant.objects.filter(
+        API_KEY=validators.get_token(request.headers)
+    ).first()
     checkout = Checkout.objects.filter(id=checkout_id).first()
 
     # Make sure this checkout is accessible by the merchant requesting
@@ -206,7 +212,9 @@ def cancel_checkout(request, checkout_id):
             status=HTTP_401_UNAUTHORIZED,
         )
 
-    merchant_db = Merchant.objects.filter(API_KEY=request.headers["API-KEY"]).first()
+    merchant_db = Merchant.objects.filter(
+        API_KEY=validators.get_token(request.headers)
+    ).first()
     checkout = Checkout.objects.filter(id=checkout_id).first()
 
     # Make sure this checkout is accessible by the merchant requesting
@@ -245,7 +253,9 @@ def refund_checkout(request, checkout_id):
             status=HTTP_401_UNAUTHORIZED,
         )
 
-    merchant_db = Merchant.objects.filter(API_KEY=request.headers["API-KEY"]).first()
+    merchant_db = Merchant.objects.filter(
+        API_KEY=validators.get_token(request.headers)
+    ).first()
     checkout = Checkout.objects.filter(id=checkout_id).first()
 
     # Make sure this checkout is accessible by the merchant requesting
@@ -272,11 +282,13 @@ def refund_checkout(request, checkout_id):
             )
 
     transaction_in_checkout = checkout.transactions.all()[0]
-    checkout.delete()
-    transaction_in_checkout.delete()
+    checkout.status = "REFUNDED"
+    transaction_in_checkout.status = "REFUNDED"
+    checkout.save()
+    transaction_in_checkout.save()
 
     return Response(
-        {"message": "Amount has been refunded and checkout has been deleted from db"},
+        {"message": "Amount has been refunded"},
         status=HTTP_200_OK,
     )
 

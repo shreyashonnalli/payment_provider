@@ -60,11 +60,18 @@ def create_checkout_validator(body):
     return 1
 
 
+def get_token(headers):
+    auth_header = headers["Authorization"]
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        return token
+
+
 def API_KEY_validator(headers):
-    if not "API-KEY" in headers:
+    if not "Authorization" in headers:
         return 0
-    API_KEY = headers["API-KEY"]
-    merchant_db = Merchant.objects.filter(API_KEY=API_KEY).first()
+    token = get_token(headers)
+    merchant_db = Merchant.objects.filter(API_KEY=token).first()
     if merchant_db is None:
         return 0
     return 1
