@@ -317,7 +317,7 @@ def process_transaction(request):
         )
 
     checkouts = Checkout.objects.filter(
-        Q(status="INPROGRESS") & Q(date__lte=datetime.now())
+        Q(status="INPROGRESS") & Q(transactions__date__lte=datetime.now())
     )
     if len(checkouts) == 0:
         return Response(
