@@ -23,11 +23,11 @@ class Transaction(models.Model):
 
 class Checkout(models.Model):
     # FK
-    merchant = models.ForeignKey(Merchant, on_delete=models.CASCADE)
-    merchant_name = models.CharField(max_length=100, blank=True)
+    _merchant = models.ForeignKey(Merchant, on_delete=models.CASCADE)
+    merchant = models.CharField(max_length=100, blank=True)
 
     def save(self, *args, **kwargs):
-        self.merchant_name = self.merchant.name
+        self.merchant = self._merchant.name
         super().save(*args, **kwargs)
 
     amount = models.IntegerField()
@@ -58,4 +58,4 @@ class Checkout(models.Model):
     installments = models.IntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(10)]
     )
-    # type = models.IntegerField()
+    type = models.CharField(max_length=4, default="BNPL")
