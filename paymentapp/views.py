@@ -287,10 +287,8 @@ def refund_checkout(request, checkout_id):
     checkout.save()
     transaction_in_checkout.save()
 
-    return Response(
-        {"message": "Amount has been refunded"},
-        status=HTTP_200_OK,
-    )
+    checkout_serializer = CheckoutSerializer(checkout)
+    return Response(checkout_serializer.data, status=HTTP_200_OK)
 
 
 # This endpoint is called to begin transferring of funds of all checkouts in the Buy Now Pay Later Scheme. It is triggered by an external script calling this endpoint once every day.
