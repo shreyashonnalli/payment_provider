@@ -17,7 +17,7 @@ class Merchant(models.Model):
 class Transaction(models.Model):
     date = models.DateTimeField(null=True)
     status = models.CharField(max_length=15, null=True)
-    amount = models.IntegerField()
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
     checkouts = models.ManyToManyField("Checkout")
 
 
@@ -30,7 +30,7 @@ class Checkout(models.Model):
         self.merchant = self._merchant.name
         super().save(*args, **kwargs)
 
-    amount = models.IntegerField()
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
     # FK
     currency = models.ForeignKey(Currency, on_delete=models.CASCADE)
     description = models.CharField(max_length=100)
@@ -38,7 +38,7 @@ class Checkout(models.Model):
     date = models.DateTimeField(auto_now_add=True)
     number = models.IntegerField(
         validators=[
-            MinValueValidator(1000000000000000),
+            MinValueValidator(100000000000000),
             MaxValueValidator(9999999999999999),
         ],
         null=True,
@@ -47,11 +47,11 @@ class Checkout(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(12)], null=True
     )
     exp_year = models.IntegerField(
-        validators=[MinValueValidator(2000), MaxValueValidator(9999)], null=True
+        validators=[MinValueValidator(0), MaxValueValidator(99)], null=True
     )
     name = models.CharField(max_length=20, null=True)
     cvv = models.IntegerField(
-        validators=[MinValueValidator(100), MaxValueValidator(999)], null=True
+        validators=[MinValueValidator(100), MaxValueValidator(9999)], null=True
     )
     # FK
     transactions = models.ManyToManyField(Transaction, null=True)

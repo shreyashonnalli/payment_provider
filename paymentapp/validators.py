@@ -25,7 +25,7 @@ def card_validator(name, number, exp_month, exp_year, cvv):
         or not isinstance(cvv, int)
     ):
         return 0
-    if number < 1000000000000000 or number > 9999999999999999:
+    if number < 100000000000000 or number > 9999999999999999:
         print("fail 1")
         return 0
     if exp_month < 1 or exp_month > 12:
@@ -50,14 +50,14 @@ def create_checkout_validator(body):
     if not "amount" in body or not "currency" in body or not "description" in body:
         return 0
     if (
-        not isinstance(body["amount"], int)
+        not isinstance(body["amount"], float)
         or not isinstance(body["currency"], str)
         or not isinstance(body["description"], str)
     ):
         return 0
     if len(body["currency"]) > 3 or len(body["description"]) == 0:
         return 0
-    if body["amount"] < 1:
+    if body["amount"] <= 0:
         return 0
     currency_code = body["currency"]
     currency_db = Currency.objects.filter(code=currency_code).first()

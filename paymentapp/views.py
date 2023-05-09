@@ -48,7 +48,7 @@ def create_checkout(request):
     if not validators.create_checkout_validator(body):
         return Response(
             {
-                "error": "Invalid details in body. Make sure you have amount, description and currency. Make sure currency is a string with max three letters and all caps. Make sure description is not empty(string). Make sure amount is an integer > 0."
+                "error": "Invalid details in body. Make sure you have amount, description and currency. Make sure currency is a string with max three letters and all caps. Make sure description is not empty(string). Make sure amount is a decimal > 0."
             },
             status=HTTP_400_BAD_REQUEST,
         )
@@ -67,17 +67,6 @@ def create_checkout(request):
         status="PENDING",
         installments=1,
     )
-    """
-    new_transaction = Transaction(amount=body["amount"])
-
-    new_transaction.save()
-    new_checkout.save()
-
-    new_transaction.checkouts.set([new_checkout])
-    new_checkout.transactions.add(new_transaction)
-
-    new_transaction.save()
-    """
     new_checkout.save()
 
     # Return the checkout object
@@ -161,13 +150,6 @@ def initiate_transaction(request, checkout_id):
 
     new_transaction.save()
     checkout.save()
-    """
-    transaction_in_checkout = checkout.transactions.all()[0]
-    transaction_in_checkout.date = datetime.now() + timedelta(days=7)
-
-    checkout.save()
-    transaction_in_checkout.save()
-    """
     checkout_serializer = CheckoutSerializer(checkout)
     return Response(checkout_serializer.data, status=HTTP_200_OK)
 
