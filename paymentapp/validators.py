@@ -26,16 +26,22 @@ def card_validator(name, number, exp_month, exp_year, cvv):
     ):
         return 0
     if number < 1000000000000000 or number > 9999999999999999:
+        print("fail 1")
         return 0
     if exp_month < 1 or exp_month > 12:
+        print("fail 2")
         return 0
-    if exp_year < 2023 or exp_year > 9999:
+    if exp_year < 0 or exp_year > 9999:
+        print("fail 3")
         return 0
-    if cvv < 100 or cvv > 999:
+    if cvv < 100 or cvv > 9999:
+        print("fail 4")
         return 0
     if name == "":
+        print("fail 5")
         return 0
     if is_month_year_in_past(exp_month, exp_year):
+        print("fail 6")
         return 0
     return 1
 

@@ -67,6 +67,7 @@ def create_checkout(request):
         status="PENDING",
         installments=1,
     )
+    """
     new_transaction = Transaction(amount=body["amount"])
 
     new_transaction.save()
@@ -76,6 +77,7 @@ def create_checkout(request):
     new_checkout.transactions.add(new_transaction)
 
     new_transaction.save()
+    """
     new_checkout.save()
 
     # Return the checkout object
@@ -139,12 +141,8 @@ def initiate_transaction(request, checkout_id):
     if not validators.card_validator(name, number, exp_month, exp_year, cvv):
         checkout.status = "FAILED"
         checkout.save()
-        return Response(
-            {
-                "error": "Invalid card details. Make sure name is not empty, number is 16 digits, exp month and year are valid and not expired, and cvv is 3 digits. Checkout is failed. Merchant must new checkout for security purposes. Make sure name is string and rest are integers when calling this endpoint again."
-            },
-            status=HTTP_400_BAD_REQUEST,
-        )
+        checkout_serializer = CheckoutSerializer(checkout)
+        return Response(checkout_serializer.data, status=HTTP_400_BAD_REQUEST)
 
     checkout.name = name
     checkout.number = number
@@ -152,12 +150,24 @@ def initiate_transaction(request, checkout_id):
     checkout.exp_year = exp_year
     checkout.cvv = cvv
     checkout.status = "INPROGRESS"
+
+    new_transaction = Transaction(
+        amount=checkout.amount, date=datetime.now() + timedelta(days=7)
+    )
+    new_transaction.save()
+
+    new_transaction.checkouts.set([checkout])
+    checkout.transactions.add(new_transaction)
+
+    new_transaction.save()
+    checkout.save()
+    """
     transaction_in_checkout = checkout.transactions.all()[0]
     transaction_in_checkout.date = datetime.now() + timedelta(days=7)
 
     checkout.save()
     transaction_in_checkout.save()
-
+    """
     checkout_serializer = CheckoutSerializer(checkout)
     return Response(checkout_serializer.data, status=HTTP_200_OK)
 
@@ -197,8 +207,14 @@ def get_status(request, checkout_id):
             {"error": "No checkout found for this ID."}, status=HTTP_400_BAD_REQUEST
         )
 
-    status = checkout.status
-    return Response({"status": status}, status=HTTP_200_OK)
+    return Response(
+        {
+            "status": checkout.status,
+            "amount": checkout.amount,
+            "currency": checkout.currency.code,
+        },
+        status=HTTP_200_OK,
+    )
 
 
 # Cancels a checkout object if its still pending, otherwise cannot cancel
@@ -232,8 +248,9 @@ def cancel_checkout(request, checkout_id):
             status=HTTP_400_BAD_REQUEST,
         )
 
-    transaction_in_checkout = checkout.transactions.all()[0]
-    transaction_in_checkout.delete()
+    transactions_with_checkout = checkout.transactions.all()
+    if transactions_with_checkout.count() > 0:
+        transactions_with_checkout[0].delete()
     checkout.delete()
 
     return Response(
