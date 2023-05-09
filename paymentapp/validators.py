@@ -7,10 +7,10 @@ def is_month_year_in_past(month, year):
     current_month = now.month
     current_year = now.year
 
-    if year < current_year:
+    if year < 23:
         return True
-    elif year == current_year:
-        if month < current_month:
+    elif year == 23:
+        if month <= current_month:
             return True
 
     return False
@@ -31,7 +31,7 @@ def card_validator(name, number, exp_month, exp_year, cvv):
     if exp_month < 1 or exp_month > 12:
         print("fail 2")
         return 0
-    if exp_year < 0 or exp_year > 9999:
+    if exp_year < 0 or exp_year > 99:
         print("fail 3")
         return 0
     if cvv < 100 or cvv > 9999:
