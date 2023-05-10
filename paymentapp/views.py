@@ -65,7 +65,7 @@ def create_checkout(request):
         currency=currency_db,
         description=body["description"],
         status="PENDING",
-        installments=1,
+        instalments=1,
     )
     new_checkout.save()
 

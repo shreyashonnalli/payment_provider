@@ -55,7 +55,7 @@ class Checkout(models.Model):
     )
     # FK
     transactions = models.ManyToManyField(Transaction, null=True)
-    installments = models.IntegerField(
+    instalments = models.IntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(10)]
     )
     type = models.CharField(max_length=4, default="BNPL")
